@@ -1,22 +1,22 @@
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url)
-    const customHeader = request.headers.get('X-Script-Token')
+    
+    // Aceita tanto pelo Header quanto pelo parâmetro ?token= na URL
+    const tokenHeader = request.headers.get('X-Script-Token')
+    const tokenUrl = url.searchParams.get('token')
+    const tokenRecebido = tokenHeader || tokenUrl
 
-    // 1. Valida o Token usando a variável de ambiente segura do Cloudflare
-    if (customHeader !== env.SECRET_TOKEN) {
+    if (!env.SECRET_TOKEN || tokenRecebido !== env.SECRET_TOKEN) {
       return new Response("Acesso negado.", { status: 403 })
     }
 
-    // 2. Pega o nome do script solicitado na URL
     const scriptName = url.searchParams.get('script')
     if (!scriptName) {
       return new Response("Nenhum script especificado.", { status: 400 })
     }
 
     const safeScriptName = scriptName.replace(/[^a-zA-Z0-9_-]/g, "")
-
-    // 3. Busca o arquivo no GitHub usando o Token seguro do GitHub
     const githubUrl = `https://raw.githubusercontent.com/SEU_USUARIO/SEU_REPO/main/scripts/${safeScriptName}.lua`
     
     const githubResponse = await fetch(githubUrl, {
@@ -31,7 +31,6 @@ export default {
     }
 
     const scriptContent = await githubResponse.text()
-
     return new Response(scriptContent, {
       headers: { 'Content-Type': 'text/plain' }
     })
